@@ -101,6 +101,51 @@ class CapturingRegistry(AnalysisEngineRegistry):
 
 
 class AnalysisRegistryTest(unittest.TestCase):
+    def test_unmapped_extension_controls_fail_before_any_builtin_solver_executes(self):
+        for engine in ("builtin-opensees", "builtin-pkpm", "builtin-yjk"):
+            registry = CapturingRegistry()
+            manifest = {**registry.list_engines()[0], "id": engine, "adapterKey": engine}
+            for extra in ({"beam_theory": "Timoshenko", "shear_deformation": True},
+                          {"unmapped_switch": False}, {"unmapped_value": 0}, {"note": "annotation"}):
+                with self.subTest(engine=engine, extra=extra):
+                    raw = build_frame_model().model_dump(mode="json", exclude_unset=True)
+                    raw["analysis_control"] = {"extra": extra}
+                    model = StructureModelV2.model_validate(raw)
+                    before = model.model_dump(mode="json")
+                    with patch.object(registry, "list_engines", return_value=[manifest]), \
+                            patch.object(registry, "_execute_analysis_selection") as execute:
+                        with self.assertRaises(AnalysisCapabilityError) as caught:
+                            registry.run_analysis("static", model, {}, engine)
+                    self.assertEqual(caught.exception.error_code, "ENGINE_INPUT_UNSUPPORTED")
+                    self.assertEqual(caught.exception.meta["engineId"], engine)
+                    self.assertIsNone(caught.exception.meta["fallbackFrom"])
+                    self.assertEqual(caught.exception.detail["inputFields"],
+                                     [f'analysis_control.extra["{key}"]' for key in sorted(extra)])
+                    execute.assert_not_called()
+                    self.assertEqual(model.model_dump(mode="json"), before)
+
+    def test_empty_extension_controls_keep_the_existing_execution_path(self):
+        registry = CapturingRegistry()
+        raw = build_frame_model().model_dump(mode="json", exclude_unset=True)
+        raw["analysis_control"] = {"extra": {}}
+        model = StructureModelV2.model_validate(raw)
+        with patch.object(registry, "_execute_analysis_selection", return_value={"success": True}) as execute:
+            result = registry.run_analysis("static", model, {}, "builtin-opensees")
+        execute.assert_called_once()
+        self.assertTrue(result["success"])
+
+    def test_remote_engines_receive_their_own_extension_contract_unchanged(self):
+        registry = CapturingRegistry()
+        manifest = {**registry.list_engines()[0], "id": "remote", "kind": "http", "adapterKey": "remote"}
+        raw = build_frame_model().model_dump(mode="json", exclude_unset=True)
+        raw["analysis_control"] = {"extra": {"remote_defined_control": 7}}
+        model = StructureModelV2.model_validate(raw)
+        with patch.object(registry, "list_engines", return_value=[manifest]), \
+                patch.object(registry, "_execute_analysis_selection", return_value={"success": True}) as execute:
+            result = registry.run_analysis("static", model, {}, "remote")
+        self.assertTrue(result["success"])
+        self.assertEqual(execute.call_args.args[2].analysis_control.extra, {"remote_defined_control": 7})
+
     def test_an_explicitly_unexecuted_receipt_cannot_be_published_as_success(self):
         registry = CapturingRegistry()
         for nested in (False, True):

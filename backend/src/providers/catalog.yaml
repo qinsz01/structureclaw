@@ -74,12 +74,15 @@
     en: OpenSees Static Analysis
   description:
     zh: OpenSees
-      二维/三维线弹性杆系静力分析：梁柱、桁架与混合支撑，局部/集中荷载、多工况组合及弯曲端释放。跨内力学恢复与直接节点结果区分；轴向/剪切/扭转释放、刚端偏心和二阶分析尚不支持。
+      二维/三维线弹性杆系静力分析：梁柱、桁架与混合支撑，局部/集中荷载、多工况组合及弯曲端释放。跨内力学恢复与直接节点结果区分；轴向/剪切/扭转释放、刚端偏心和二阶分析尚不支持。梁柱当前使用不计剪切变形的Euler-Bernoulli elasticBeamColumn单元，未接通Timoshenko求解，不能通过analysis_control.extra实现不支持的控制要求。
     en: OpenSees 2-D/3-D linear frame statics with beams, columns, trusses, mixed
       braces, partial/point loads, case combinations and bending end releases.
       Interior mechanics recovery is distinct from direct nodal results.
       Axial/shear/torsional releases, rigid offsets and second-order analysis
       are unsupported.
+      Frame members currently use Euler-Bernoulli elasticBeamColumn elements,
+      without shear deformation; Timoshenko execution is not implemented by this adapter.
+      Unsupported controls cannot be implemented through analysis_control.extra.
   priority: 140
   software: opensees
   analysisType: static
@@ -100,7 +103,7 @@
     en: PKPM Static Analysis
   description:
     zh: PKPM
-      三维线弹性杆系静力分析，逐层保持实际拓扑、显式材料与截面属性；接通节点六分量荷载、多工况、有符号截面结果与线性组合。梁线荷载接通全局竖向均布荷载及其明确分段，未接通折线变化线荷载；委托拟方案时须提出与此兼容的明确传荷方案，不得更改已经确认的荷载分布。显式设计请求可使用已验证标准材料和真实截面计算所需配筋或读取原生钢构件校核；普通分析不发布设计结论，缺失结果不补零。
+      三维线弹性杆系静力分析，逐层保持实际拓扑、显式材料与截面属性；接通节点六分量荷载、多工况、有符号截面结果与线性组合。原生梁柱包含剪切柔度，不能将其与当前OpenSees的Euler-Bernoulli单元直接判等；本适配器未接通忽略剪切变形的理论切换。梁线荷载接通全局竖向均布荷载及其明确分段，未接通折线变化线荷载；委托拟方案时须提出与此兼容的明确传荷方案，不得更改已经确认的荷载分布。显式设计请求可使用已验证标准材料和真实截面计算所需配筋或读取原生钢构件校核；普通分析不发布设计结论，缺失结果不补零。
     en: PKPM 3-D linear elastic frame statics preserving per-floor topology and explicit
       material/section properties, with six-component nodal loads, multiple
       cases, signed stations and linear combinations. Beam line loads support global
@@ -108,7 +111,10 @@
       piecewise-linear distributions. Delegated schemes must specify compatible
       load transfer; confirmed distributions cannot be changed. Explicit design requests
       use verified standard materials and physical sections for required
-      reinforcement or native steel checks. Ordinary analysis publishes no
+      reinforcement or native steel checks. Native frame members include shear flexibility;
+      this adapter cannot switch to a shear-rigid Euler-Bernoulli formulation.
+      Do not assume identical displacements to the current OpenSees frame implementation.
+      Ordinary analysis publishes no
       design conclusions; missing results are not zero-filled.
   priority: 130
   software: pkpm
@@ -130,9 +136,12 @@
     en: YJK Static Analysis
   description:
     zh: YJK
-      三维杆系静力分析及原生框架设计。分析保留物理构件、荷载位置与源工况，支持普通竖柱固定、铰支、方向支座及梁端成对局部弯曲释放，保留扭转；普通梁柱自重绑定源密度、面积及明确工况。显式设计请求读取混凝土矩形梁柱配筋及钢
+      三维杆系静力分析及原生框架设计。原生梁柱包含剪切柔度，未接通忽略剪切变形的理论切换，不与当前OpenSees的Euler-Bernoulli单元直接判等。分析保留物理构件、荷载位置与源工况，支持普通竖柱固定、铰支、方向支座及梁端成对局部弯曲释放，保留扭转；普通梁柱自重绑定源密度、面积及明确工况。显式设计请求读取混凝土矩形梁柱配筋及钢
       H/箱形梁柱应力验算，核对真实几何、材料牌号、规范和原生组合。缺项不填零，参考截面不用于设计。
-    en: YJK 3-D frame statics and native frame design. Analysis preserves physical
+    en: YJK 3-D frame statics and native frame design. Native frame members include
+      shear flexibility; this adapter cannot switch to a shear-rigid Euler-Bernoulli
+      formulation. Do not assume identical displacements to the current OpenSees
+      frame implementation. Analysis preserves physical
       members, load positions and source cases, with fixed/pinned/directional
       vertical-column bases and paired local beam bending releases retaining
       torsion; ordinary beam/column weight binds authored density and area to an

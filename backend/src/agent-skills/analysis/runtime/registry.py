@@ -437,6 +437,19 @@ class AnalysisEngineRegistry:
                 },
             )
         selection = self._select_engine_for("analyze", analysis_type, model.model_dump(mode="json", exclude_unset=True), engine_id)
+        extra_controls = model.analysis_control.extra if model.analysis_control else {}
+        if (selection.engine.get("kind") == "python"
+                and selection.engine.get("adapterKey") in ENGINE_DEFAULTS and extra_controls):
+            fields = [f"analysis_control.extra[{json.dumps(key, ensure_ascii=False)}]" for key in sorted(extra_controls)]
+            error = AnalysisCapabilityError(
+                engine=selection.engine["id"], capability="analysis-control-extension",
+                reason="Built-in adapters do not execute controls in analysis_control.extra: " + ", ".join(fields)
+                + ". Use implemented formal controls; annotations belong in model metadata. Unsupported requirements must not be dropped or replaced to obtain a result."
+                + " / 内置适配器未实现上述扩展控制项，不能忽略后按默认假定计算；请使用已接通的正式控制字段，说明性文字保存在模型metadata，无法执行的要求须明确失败。",
+            )
+            error.meta = {**self._build_engine_meta(selection), **error.meta, "inputFields": fields}
+            error.detail["inputFields"] = fields
+            raise error
         result = self._execute_analysis_selection(selection, analysis_type, model, parameters, engine_id)
 
         payload = result.get("data") if isinstance(result.get("data"), dict) else result

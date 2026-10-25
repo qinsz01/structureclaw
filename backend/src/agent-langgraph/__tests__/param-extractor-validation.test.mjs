@@ -34,6 +34,59 @@ const extractorInput = (state, llm, extra = {}) => ({
 });
 
 describe('typed engineering validation in parameter extraction', () => {
+  test.each(['left-side', 'right-side', 'all', 'node-x0y1', 'all-top-nodes'])('repairs formal node role %s in the wrong field without asking for floor totals', async role => {
+    const state = { ...acceptedState(), engineeringDraft: { ...acceptedState().engineeringDraft, structureType: 'frame' } };
+    const before = structuredClone(state), prompts = [];
+    const corrected = { engineeringDraft: { loads: [{ id: 'N', kind: 'nodal', magnitude: 60, unit: 'kN',
+      direction: 'gravity', location: { nodeRole: role, story: 1 } }] } };
+    const invalid = structuredClone(corrected);
+    invalid.engineeringDraft.loads[0].target = role;
+    delete invalid.engineeringDraft.loads[0].location.nodeRole;
+    const result = await invokeParamExtractor(extractorInput(state, { invoke: async prompt => {
+      prompts.push(prompt);
+      return { content: JSON.stringify(prompts.length === 1 ? invalid : corrected) };
+    } }));
+    expect(result).toEqual(corrected);
+    expect(prompts).toHaveLength(2);
+    expect(prompts[1]).toContain('LOAD_NODE_ROLE_FIELD_INVALID');
+    expect(prompts[1]).toContain('location.nodeRole instead of target');
+    expect(state).toEqual(before);
+  });
+
+  test.each(['source', 'topology'])('rejects duplicate legacy floor loads before accepting %s records', async style => {
+    const state = acceptedState(), before = structuredClone(state), prompts = [], validated = [];
+    const corrected = style === 'source' ? acceptedPatch()
+      : { engineeringDraft: { loadCases: [{ id: 'D', type: 'dead', loads: [{ type: 'nodal', node: 'A', fz: -60 }] }] } };
+    const result = await invokeParamExtractor(extractorInput(state, { invoke: async prompt => {
+      prompts.push(prompt);
+      return { content: JSON.stringify(prompts.length === 1
+        ? { draftPatch: { floorLoads: [{ story: 1, verticalKN: -120, lateralXKN: 20 }], ...corrected } } : corrected) };
+    } }, { validatePatch: candidate => validated.push(candidate) }));
+    expect(result).toEqual(corrected);
+    expect(validated).toEqual([corrected]);
+    expect(prompts).toHaveLength(2);
+    expect(prompts[1]).toContain('DRAFT_LOAD_REPRESENTATION_CONFLICT');
+    expect(prompts[1]).toContain('preserving scope, signs and cases');
+    expect(state).toEqual(before);
+  });
+
+  test('an uncorrected duplicate load representation fails atomically', async () => {
+    const state = acceptedState(), before = structuredClone(state);
+    let validations = 0;
+    await expect(invokeParamExtractor(extractorInput(state, { invoke: async () => ({ content: JSON.stringify({
+      ...acceptedPatch(), floorLoads: [{ story: 1, verticalKN: 120 }],
+    }) }) }, { validatePatch: () => { validations++; } }))).rejects.toThrow('DRAFT_LOAD_REPRESENTATION_CONFLICT');
+    expect(validations).toBe(0);
+    expect(state).toEqual(before);
+  });
+
+  test('a canonical patch does not discard independent previously confirmed floor loads', async () => {
+    const state = { ...acceptedState(), floorLoads: [{ story: 2, verticalKN: 100 }] }, before = structuredClone(state);
+    const result = await invokeParamExtractor(extractorInput(state, { invoke: async () => ({ content: JSON.stringify(acceptedPatch()) }) }));
+    expect(result).toEqual(acceptedPatch());
+    expect(state).toEqual(before);
+  });
+
   test.each(['direct', 'wrapped'])('rejects misplaced canonical fields before accepting a %s patch', async style => {
     const state = acceptedState(), before = structuredClone(state), prompts = [], validated = [];
     const corrected = acceptedPatch();

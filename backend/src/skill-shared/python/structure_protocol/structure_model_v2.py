@@ -605,6 +605,8 @@ class LoadCombinationV2(BaseModel):
 class AnalysisControl(BaseModel):
     """分析控制参数 / Analysis control settings."""
 
+    model_config = ConfigDict(extra='forbid')
+
     p_delta: bool = Field(default=False, description="考虑 P-Δ 效应")
     rigid_floor: bool = Field(default=True, description="刚性楼板假定")
     self_weight: Optional[bool] = Field(default=None, description="显式自重开关 / explicit self-weight setting")

@@ -166,6 +166,11 @@ class TestStoryDef:
 
 
 class TestAnalysisControl:
+    @pytest.mark.parametrize('control', [{'beam_theory': 'Timoshenko'}, {'rigidFloor': False}, {'unknown_switch': 0}])
+    def test_unknown_control_fields_cannot_disappear_during_validation(self, control):
+        with pytest.raises(Exception, match='Extra inputs are not permitted'):
+            AnalysisControl.model_validate(control)
+
     def test_defaults(self):
         ac = AnalysisControl()
         assert ac.p_delta is False

@@ -1,7 +1,7 @@
 import { EngineeringValidationError } from '../engineering/validation-error.js';
 import { assertDraftSectionPurposes } from '../engineering/draft-sections.js';
 import { normalizeMaterialDensity } from '../engineering/material-density.js';
-import { modelSelectorSchema, floorTransferSchema, isGlobalFrameNodeRole, frameNodeRoleSchema } from '../engineering/model-selection.js';
+import { modelSelectorSchema, floorTransferSchema, frameNodeRoleSchema } from '../engineering/model-selection.js';
 import { mergeInputEvidence } from '../engineering/input-evidence.js';
 import { isDeepStrictEqual } from 'node:util';
 import { normalizeMemberReleases } from '../engineering/member-releases.js';
@@ -455,8 +455,12 @@ export function normalizeEngineeringDraft(value: unknown, existing?: Engineering
     if (load.unit === 'kN' && load.selector?.type !== undefined) {
       throw new EngineeringValidationError(`LOAD_NODE_SELECTOR_TYPE_INVALID: ${load.id ?? '?'}; nodes have no type field. Preserve the load group with ids/coordinates, not type:${JSON.stringify(load.selector.type)} / 节点没有type字段，请保留分组并使用准确ID或坐标选择器`);
     }
-    if (['frame','concrete-frame'].includes(draft.structureType ?? existing?.structureType ?? '') && isGlobalFrameNodeRole(load.target)
-      && !draft.topology?.nodes?.some(node => node.id === load.target)) {
+    if (['frame','concrete-frame'].includes(draft.structureType ?? existing?.structureType ?? '')
+      && ['nodal', 'point'].includes(load.kind) && load.location?.xM === undefined
+      && frameNodeRoleSchema.safeParse(load.target).success
+      && !(draft.topology?.nodes ?? existing?.topology?.nodes)?.some(node => node.id === load.target)
+      && ![draft.model, existing?.model].some(model => Array.isArray(model?.nodes)
+        && model.nodes.some(node => asRecord(node)?.id === load.target))) {
       throw new EngineeringValidationError(`LOAD_NODE_ROLE_FIELD_INVALID: ${load.id ?? '?'}; put the formal node role ${JSON.stringify(load.target)} in location.nodeRole instead of target. Preserve all magnitudes, units and cases / 正式节点角色应写入location.nodeRole，不得当作实体ID；保留全部荷载数值、单位和工况`);
     }
   }

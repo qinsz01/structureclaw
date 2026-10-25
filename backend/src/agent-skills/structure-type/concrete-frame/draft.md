@@ -27,7 +27,7 @@ A `DraftExtraction` JSON object with the following optional keys (see `constants
 ### Loads & Boundaries
 | Key | Type | Example | Notes |
 |-----|------|---------|-------|
-| `floorLoads` | `Array<{ story: number; verticalKN?: number; lateralXKN?: number; lateralYKN?: number; liveLoadKN?: number }>` | `[{ story: 1, verticalKN: -200, lateralXKN: 50 }]` | Vertical load negative (downward). Lateral loads positive in global X/Y. |
+| `floorLoads` | `Array<{ story: number; verticalKN?: number; lateralXKN?: number; lateralYKN?: number; liveLoadKN?: number }>` | `[{ story: 1, verticalKN: 200, lateralXKN: 50 }]` | Legacy story totals: verticalKN/liveLoadKN positive downward; lateral values are signed in global X/Y. Do not emit alongside canonical loads. / 旧格式楼层总荷载：竖向正值向下，水平按全局轴有符号；不能与正式荷载重复输出。 |
 | `frameBaseSupportType` | `"fixed"` or `"pinned"` | `"fixed"` | Only when stated; when omitted the template models fixed bases. |
 
 ### Materials & Sections

@@ -28,6 +28,7 @@ import { MATERIAL_DENSITY_RULE } from '../engineering/material-density.js';
 // Skill context
 const SECTION_SOURCE_RULE = 'Section source: Explicit USER properties win. Dimensions: shape ONLY; system derives sharp-corner properties. Designation-only: ONE dimension question with other missing inputs. Recall candidates: extra.provenance.shape/properties="llm-table", extra.source="LLM: assistant-recalled table value, please verify"; never tool-retrieved, NOT computable before the user confirms. Only actual answers/selected options confirm dimensions as provenance.shape="user"; omit recalled properties. Designation/silence/assistant text never confirm. Sources: sectionRecords[].extra, alongside shape and properties, not inside shape. Preserve IDs and templateAssignments; accepted beam/column roles require their sectionId (member only for explicit uniform scope), no repeated assignment question. / 用户显式属性优先；尺寸只填shape，系统按尖角推导；型号缺尺寸与其他缺项合问一次。记忆仅待确认候选，标llm-table及“助手记忆的标准表值，请核对”，不能声称工具检索，确认前不能计算；仅实际答复/选项可确认尺寸，标user并省略记忆属性。型号/沉默/助手话不算确认。来源在extra，与shape和properties同级；保留ID与已确认梁柱角色引用，不重复问。';
 const MATERIAL_WEIGHT_RULE = 'Known grades receive omitted elastic constants and density from system defaults; explicit values win. Unmentioned self-weight: retain the setting, default false, state the assumption; no question or issue. Reinforcement grades used only for design belong in material.rebarGrade, not materials records. Explicitly modelled reinforcing members still require analysis material records and properties. / 已知牌号补缺省弹性常数和密度，显式值优先。未提自重则沿用原设置、默认不计并说明，不追问。仅用于设计验算的钢筋牌号写material.rebarGrade，不创建分析材料记录；显式建模的钢筋构件仍须材料记录与分析属性。';
+const ANALYSIS_CONTROL_RULE = 'Built-in solvers do not execute analysisControl.extra / model.analysis_control.extra; leave it empty. Use implemented formal controls, analysis.type/engineTarget for routing, and run_analysis arguments for modal/time-history settings. Annotations belong in metadata. Unsupported user requirements must remain explicit diagnostics and stop execution; never erase or replace them to obtain a successful result. / 内置求解器不执行extra中的分析控制项，须留空；使用已接通的正式控制字段，分析类型和引擎放analysis，模态/时程参数通过run_analysis传入，说明放metadata。不支持的用户要求须明确诊断并停止，不得删除或替换要求来凑成功结果。';
 
 // ---------------------------------------------------------------------------
 
@@ -103,7 +104,7 @@ function engineeringDraftSchemaDescription(locale: 'zh' | 'en'): string {
     return [
       'engineeringDraft uses this generated contract. All fields may be omitted in a partial draft; preserve explicitly supplied values and stable IDs. / 草稿允许缺项，但不得编造信息：',
       JSON.stringify(promptContract(draftExtractionContract)),
-      updateContract, sectionSources, MATERIAL_WEIGHT_RULE, MATERIAL_DENSITY_RULE,
+      updateContract, sectionSources, MATERIAL_WEIGHT_RULE, MATERIAL_DENSITY_RULE, ANALYSIS_CONTROL_RULE,
       seismicEvidence,
       'draftIssues: [{field: string, kind: missing|confirmation, severity: invalid|ambiguous|unrealistic|conflict, reason: string, question?: string}]. Use one exact field per issue with quoted stable IDs, e.g. materials["M1"].E. missing means absent data; confirmation means a present value needs user confirmation. Do not repeat a missing issue after supplying its value. Do not emit skillState.invalidDraftFields; the runtime derives it. / 缺项按当前值重新判断；确认与来源冲突单独保留。每项诊断对应一个字段和稳定ID，不维护第二份缺项列表。',
       '  // restraints 顺序严格为 [ux,uy,uz,rx,ry,rz]，true 表示约束。X-Z 平面铰支座为 [true,true,true,false,false,false]，沿全局 X 向可滑动的滚动支座为 [false,true,true,false,false,false]。',
@@ -136,7 +137,7 @@ function engineeringDraftSchemaDescription(locale: 'zh' | 'en'): string {
   return [
       'engineeringDraft uses this generated contract. All fields may be omitted in a partial draft; preserve explicitly supplied values and stable IDs. / 草稿允许缺项，但不得编造信息：',
       JSON.stringify(promptContract(draftExtractionContract)),
-      updateContract, sectionSources, MATERIAL_WEIGHT_RULE, MATERIAL_DENSITY_RULE,
+      updateContract, sectionSources, MATERIAL_WEIGHT_RULE, MATERIAL_DENSITY_RULE, ANALYSIS_CONTROL_RULE,
       seismicEvidence,
       'draftIssues: [{field: string, kind: missing|confirmation, severity: invalid|ambiguous|unrealistic|conflict, reason: string, question?: string}]. Use one exact field per issue with quoted stable IDs, e.g. materials["M1"].E. missing means absent data; confirmation means a present value needs user confirmation. Do not repeat a missing issue after supplying its value. Do not emit skillState.invalidDraftFields; the runtime derives it. / 缺项按当前值重新判断；确认与来源冲突单独保留。每项诊断对应一个字段和稳定ID，不维护第二份缺项列表。',
     '  // restraints are exactly [ux,uy,uz,rx,ry,rz], where true means restrained. In an X-Z model, a pin is [true,true,true,false,false,false] and a roller free in global X is [false,true,true,false,false,false].',
@@ -296,6 +297,7 @@ function buildFocusedParamExtractorPrompt(
     'Groups: selector:{ids,type,prefix,parallelTo:x|y|z,coordinate:{axis,at:midpoint|start|end,eq,gt,gte,lt,lte},coordinates:[AND]} atomically replaces target. Prefer location.story (1-based); selector.story requires an existing exact ID, never both. Coordinates use member midpoints. Keep xM/spanIndex. magnitude applies to EACH target. / 分组原子替换target，优先层号；已有准确ID才用selector.story，二者不并存。保留位置，每目标分别施加。',
     SECTION_SOURCE_RULE + SECTION_EVIDENCE_RULE,
     MATERIAL_WEIGHT_RULE + MATERIAL_DENSITY_RULE,
+    'analysisControl.extra is unsupported; use formal controls. / extra控制未接通，用正式字段。',
     LOAD_DIRECTION_RULE,
     'clearDraftFields deletes explicitly withdrawn/replaced fields by stable ID, e.g. sectionRecords["S1"].standard_steel_name; omission never deletes. Never clear identity or evidence (including extra.source and extra.provenance). Confirm dimensions via provenance.shape="user", retaining evidence. Resolve format/precision yourself. Missing inputs: draftIssues=[{field,severity:"missing"|"ambiguous",reason}]. Never invent loads, units, design conditions or topology. / 删除须明确撤回或替换，保留ID和来源证据；缺项报draftIssues，不编造。',
     `Skill: ${plugin.id}; focus fields / 本轮重点字段：${JSON.stringify(focusFields)}`,
@@ -459,7 +461,9 @@ export async function invokeParamExtractor(
     input.message,
     input.focusFields,
     patchMode,
-  ) + '\n' + FLOOR_TRANSFER_RULE + '\nInput completeness / 输入完整性: Extract each supplied field independently. A pending confirmation on one field never blocks other fields. If a supplied value cannot be represented, include top-level unapplied:[{field,reason,message}] instead of omitting it silently. / 分别提取每个已给字段；某字段待确认不得阻止其他字段。无法表达的已给值必须列入顶层unapplied并说明原因，不能静默遗漏。'
+  ) + '\n' + FLOOR_TRANSFER_RULE
+    + (patchMode ? '' : '\nLoad representation / 荷载表示: When providing canonical engineeringDraft.loads or explicit topology loadCases, omit legacy floorLoads; preserve every actual load exactly once in the canonical records, including independent story totals. / 输出正式荷载时省略旧floorLoads；全部真实荷载（包括独立楼层总荷载）在正式记录中各保留一次。')
+    + '\nInput completeness / 输入完整性: Extract each supplied field independently. A pending confirmation on one field never blocks other fields. If a supplied value cannot be represented, include top-level unapplied:[{field,reason,message}] instead of omitting it silently. / 分别提取每个已给字段；某字段待确认不得阻止其他字段。无法表达的已给值必须列入顶层unapplied并说明原因，不能静默遗漏。'
     + (input.plugin.id === 'generic' ? '\nGeneric load scope: for natural-language groups, PREFER loads[].scopeDescription with the original intended group and location.story; do NOT synthesize selectors or model IDs during extraction. Keep explicit user-supplied selectors/IDs unchanged. The LLM builder binds descriptions to actual geometry. Missing generated IDs are NOT missing user input; do not ask the user to register an already accepted load again. / 通用提取保留作用分组原文，不提前编写坐标选择器或实体ID；LLM建模阶段再绑定几何，不重复确认已接受荷载。' : '')
     + '\nMember end releases / 构件端释放: i/j contain boolean local DOFs ux/uy/uz/rx/ry/rz, not result fields; retain reference_frame="element-local" when supplied. Axial rotations are already free; never invent or remove translational releases or offsets. / 保留局部自由度布尔值、参考系和偏心；纯轴力杆转动本已自由，不编造或删除平移释放。'
     + '\nAxial-only sections / 纯轴力截面: Explicit positive A suffices for truss/brace-only sections: no equivalent shape/inertia; resolve old missing-shape issues. No shear/bending stiffness does not imply translational releases. / 纯轴力截面正面积A已足够，撤销旧缺形状问题，不编造形状、惯性矩或平移释放。'
@@ -525,6 +529,12 @@ export async function invokeParamExtractor(
         if (misplaced.length) throw new EngineeringValidationError(
           `DRAFT_ENVELOPE_INVALID: ${misplaced.map(key => JSON.stringify(key)).join(', ')} belong inside engineeringDraft, not beside it. Return the complete corrected patch, preserving all supplied values; do not ask the user to repeat them. / 上述字段须放在engineeringDraft内部，不得丢弃；返回保留全部已给数值的正确补丁，不向用户重复追问。`,
         );
+        const draft = isRecord(patch.engineeringDraft) ? patch.engineeringDraft : undefined;
+        if (Array.isArray(patch.floorLoads) && patch.floorLoads.length
+          && (Array.isArray(draft?.loads) && draft.loads.length
+            || Array.isArray(draft?.loadCases) && draft.loadCases.some(item => isRecord(item) && Array.isArray(item.loads) && item.loads.length))) {
+          throw new EngineeringValidationError('DRAFT_LOAD_REPRESENTATION_CONFLICT: legacy floorLoads and canonical engineeringDraft loads cannot coexist in one extraction patch. Return every requested load once in engineeringDraft.loads (or loadCases for explicit topology), preserving scope, signs and cases; omit legacy floorLoads. Never erase loads or ask the user to repeat supplied inputs. / 同一提取补丁不能同时提供旧floorLoads和正式荷载记录，否则可能重复施加或符号冲突；将全部用户荷载各保留一次在正式记录中，省略旧floorLoads，不得删荷载或重复追问。');
+        }
         await input.validatePatch?.(patch);
       }
       catch (error) {

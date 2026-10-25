@@ -1,6 +1,7 @@
 {
   "$defs": {
     "AnalysisControl": {
+      "additionalProperties": false,
       "description": "分析控制参数 / Analysis control settings.",
       "properties": {
         "p_delta": {

@@ -26,6 +26,13 @@ test('misplaced node roles and member type selectors cannot poison an accepted f
   expect(()=>normalizeEngineeringDraft(source)).toThrow('LOAD_NODE_SELECTOR_TYPE_INVALID');
 });
 
+test('an explicit node ID equal to a formal role remains an exact ID in new and partial topology input',()=>{
+  const source={structureType:'frame',topology:{nodes:[{id:'left-side',x:0,y:0,z:3}]},
+    loads:[{id:'P',kind:'nodal',magnitude:10,unit:'kN',direction:'gravity',target:'left-side'}]};
+  expect(normalizeEngineeringDraft(source).loads[0].target).toBe('left-side');
+  expect(normalizeEngineeringDraft({loads:source.loads},source).loads[0].target).toBe('left-side');
+});
+
 test('an unassigned source never picks a case based on source ordering',()=>{
   const inputs=[{caseId:'D'},{},{caseId:'L'}],before=structuredClone(inputs);
   for(const order of [inputs,[...inputs].reverse(),[inputs[1],inputs[0],inputs[2]]]) {
