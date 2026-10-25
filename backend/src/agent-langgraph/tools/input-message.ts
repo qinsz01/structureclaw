@@ -52,6 +52,9 @@ export function hasExtractedCurrentInput(messages: unknown[] = []): boolean {
     try {
       const result = JSON.parse(messageText(message));
       if (name === 'ask_user_clarification' && result.type === 'clarification_answered') return false;
+      // A builder protocol diagnostic is new structured feedback, not duplicate evidence.
+      if (name === 'build_model' && result.modelBuilt === false && result.errorCode === 'DRAFT_PROTOCOL_INVALID'
+        && result.nextAction === 'extract_draft_params') return false;
       if (name === 'extract_draft_params') {
         return ['applied', 'no_change'].includes(result.status)
           && Array.isArray(result.unapplied) && result.unapplied.length === 0;

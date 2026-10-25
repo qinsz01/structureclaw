@@ -106,6 +106,14 @@ function block(ledger: GuardLedger, guard: GuardKind, tool: string, code: string
     ledger.stop = { reason: 'repeated-blocks', calls: ledger.blocked.length };
     recordGuardEvent('guard-stop', { action: 'end-turn', reason: 'repeated-blocks', blocked: ledger.blocked.length });
   }
+  stopWithoutProgress(ledger, tool);
+}
+
+function stopWithoutProgress(ledger: GuardLedger, tool: string): void {
+  if (!ledger.stop && ledger.noProgressStreak >= NO_PROGRESS_LIMIT) {
+    ledger.stop = { reason: 'no-progress', calls: ledger.noProgressStreak };
+    recordGuardEvent('no-progress', { action: 'end-turn', calls: ledger.noProgressStreak, lastTool: tool });
+  }
 }
 
 export interface PreflightInput {
@@ -227,10 +235,7 @@ export function recordToolResult(ledger: GuardLedger | undefined, call: { name: 
     if (own) ledger.failures.set(signature, { ...own, count: 1 });
   }
   ledger.noProgressStreak = stateChanged || isNewInformation ? 0 : ledger.noProgressStreak + 1;
-  if (!ledger.stop && ledger.noProgressStreak >= NO_PROGRESS_LIMIT) {
-    ledger.stop = { reason: 'no-progress', calls: ledger.noProgressStreak };
-    recordGuardEvent('no-progress', { action: 'end-turn', calls: ledger.noProgressStreak, lastTool: call.name });
-  }
+  stopWithoutProgress(ledger, call.name);
 }
 
 // ---------------------------------------------------------------------------

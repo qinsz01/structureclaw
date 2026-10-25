@@ -17,6 +17,7 @@ import type { AgentSkillPlugin, DraftExtraction, DraftState, StructuralTypeMatch
 import { invalidateStaleResults } from '../../engineering/model-state.js';
 import { isRecord } from '../../engineering/model-record.js';
 import { EngineeringValidationError } from '../../engineering/validation-error.js';
+import { assertDraftSectionPurposes } from '../../engineering/draft-sections.js';
 import { bindVerifiedSectionTable } from '../../engineering/section-evidence.js';
 import { mergeInputEvidence } from '../../engineering/input-evidence.js';
 import { engineeringModelSchema, draftDesignSchema, hasDraftDesignInputs, assertDraftDesignInputs, draftSectionShapeSchema, normalizeDraftSectionInputs } from '../../engineering/model-edit-contract.js';
@@ -131,6 +132,7 @@ async function extractAndMergeDraft(options: {
     const patch = extracted.engineeringDraft ? { ...extracted, engineeringDraft: { ...extracted.engineeringDraft,
       inputEvidence: mergeInputEvidence(state?.inputEvidence, extracted.engineeringDraft.inputEvidence) } } : extracted;
     let nextState = withStructuralTypeState(plugin.handler.mergeState(existingState, patch), match);
+    assertDraftSectionPurposes(nextState.engineeringDraft?.sectionRecords);
     nextState = projectDraftState(verifyDraftSectionEvidence(nextState.engineeringDraft, { ...conversationSectionEvidence(state),
       inputEvidence: nextState.engineeringDraft?.inputEvidence ?? state?.inputEvidence }), nextState);
     if (nextState.engineeringDraft) {
