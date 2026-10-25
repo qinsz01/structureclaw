@@ -2,7 +2,7 @@ import type { AgentState } from '../../state.js';
 import { commitModel, invalidateStaleResults } from '../../../engineering/model-state.js';
 import { compactText } from './context.js';
 import { stiffnessPlaceholderOf } from '../../../engineering/stiffness-placeholder.js';
-import { pickAnalysisDiagnostics, buildSuccessfulAnalysisDetails } from './summary.js';
+import { pickAnalysisDiagnostics, buildSuccessfulAnalysisDetails, compactReactionTotals } from './summary.js';
 import { isRecord, optionalRecord } from '../shared.js';
 import { sectionAssumptions } from '../../../engineering/section-assumptions.js';
 
@@ -122,12 +122,25 @@ export function buildAnalysisToolSummary(args: {
     };
   }
 
+  const savedResults = optionalRecord(result.results);
+  const selection = optionalRecord(result.selection);
+  const entries = savedResults ? Object.entries(savedResults)
+    : [[typeof result.selectedResultKey === 'string' ? result.selectedResultKey
+      : typeof selection?.key === 'string' ? selection.key : 'analysis:default', result]] as const;
+  const reactionTotals = Object.fromEntries(entries.flatMap(([key, selected]) => {
+    if (!isRecord(selected) || isExplicitAnalysisFailure(selected) || !isExplicitAnalysisSuccess(selected)) return [];
+    const totals = compactReactionTotals(getAnalysisPayload(selected), selected);
+    return totals ? [[key, totals]] : [];
+  }));
+
   return {
     success: true,
     skillId: args.skillId,
     ...(result.runId ? { runId: result.runId, resultKeys: isRecord(result.results) ? Object.keys(result.results) : [], selectedResultKey: result.selectedResultKey,
       executionStatus: result.executionStatus, capabilityStatus: result.capabilityStatus } : {}),
     analysisMode: data?.analysisMode,
+    ...(Object.keys(reactionTotals).length ? { reactionTotals,
+      reactionTotalsInstruction: 'Use this run\'s reactionTotals by exact result key; never reuse historical or draft physicsCheck totals. Values sum all solver reaction nodes, not the truncated response sample. mx/my/mz sum nodal reaction moments, excluding r×F, and are not resultant base moments about an origin. Missing components are unavailable, not zero. / 按准确结果键使用本次反力合计，不沿用历史或草稿physicsCheck总量；合计覆盖全部求解器反力节点。mx/my/mz仅为节点反力矩之和，不含力臂项，不是关于某原点的基底合矩；缺失分量不可视为零。' } : {}),
     ...(Array.isArray(data.sectionAssumptions) ? { sectionAssumptions: data.sectionAssumptions } : {}),
     ...(buildSuccessfulAnalysisDetails(data, result, args.model) ?? {}),
   };

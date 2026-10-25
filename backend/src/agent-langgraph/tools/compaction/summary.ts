@@ -2,6 +2,42 @@ import { compactText, compactFinalCompliance, compactCapabilityAssessment, compa
 import { optionalRecord, countRecordEntries, firstDefined, pickNumberLike, pickStringLike, omitEmptyRecord } from '../shared.js';
 import { withGlobalResultLocations } from '../../../engineering/result-locations.js';
 
+/** Sum complete signed components from the full solver field, before response truncation. */
+export function compactReactionTotals(data: Record<string, unknown>, result: Record<string, unknown>) {
+  const binding = optionalRecord(result.meta);
+  const meta = optionalRecord(data.meta);
+  const analysisType = result.analysis_type ?? result.analysisType ?? binding?.analysisType ?? meta?.analysisType;
+  // Dynamic/modal envelopes need simultaneous states; summing node peaks is not a case total.
+  if (analysisType !== 'static') return undefined;
+  const reactions = optionalRecord(data.reactions ?? data.nodeReactions);
+  const rows = Object.values(reactions ?? {}).map(optionalRecord);
+  if (!rows.length) return undefined;
+  const units = optionalRecord(data.units) ?? optionalRecord(meta?.units);
+  const forceUnit = units?.force ?? meta?.forceUnit;
+  const momentUnit = units?.moment ?? meta?.momentUnit;
+  if (meta?.nodalResultFrame !== 'global' || typeof forceUnit !== 'string' || !forceUnit.trim()
+    || typeof momentUnit !== 'string' || !momentUnit.trim()) return undefined;
+  const values: Record<string, number> = {};
+  const missingComponents: string[] = [];
+  for (const component of ['fx', 'fy', 'fz', 'mx', 'my', 'mz']) {
+    const components = rows.map(row => row?.[component]);
+    if (components.every((value): value is number => typeof value === 'number' && Number.isFinite(value))) {
+      const total = components.reduce((sum, value) => sum + value, 0);
+      if (Number.isFinite(total)) values[component] = total;
+      else missingComponents.push(component);
+    } else missingComponents.push(component);
+  }
+  if (!Object.keys(values).length) return undefined;
+  return {
+    nodeCount: rows.length,
+    referenceFrame: 'global',
+    units: { force: forceUnit, moment: momentUnit },
+    values,
+    ...(typeof binding?.modelRevision === 'number' ? { modelRevision: binding.modelRevision } : {}),
+    ...(missingComponents.length ? { missingComponents } : {}),
+  };
+}
+
 export function pickAnalysisDiagnostics(
   result: Record<string, unknown>,
   meta: Record<string, unknown>,
@@ -146,7 +182,7 @@ export function buildSuccessfulAnalysisDetails(
     activeDofs: Array.isArray(analysisMeta?.activeDofs)
       ? analysisMeta.activeDofs.filter((value): value is string => typeof value === 'string')
       : undefined,
-    units: optionalRecord(analysisMeta?.units),
+    units: optionalRecord(data.units) ?? optionalRecord(analysisMeta?.units),
     nodalResultFrame: responseMetaValue('nodalResultFrame'),
     elementForceFrame: responseMetaValue('elementForceFrame'),
     displacements: compactResponseEntities(
