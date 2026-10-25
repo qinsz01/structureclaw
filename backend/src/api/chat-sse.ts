@@ -1,6 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { config } from '../config/index.js';
 import { isLlmTimeoutError, isContextOverflowError, toLlmStreamError } from '../utils/llm-error.js';
+import { createChatStreamProjection } from '../services/chat-artifacts.js';
 
 function setSseCorsHeaders(request: FastifyRequest, reply: FastifyReply) {
   const origin = request.headers.origin;
@@ -103,9 +104,10 @@ export async function runSseTurn(request: FastifyRequest, reply: FastifyReply, h
   request.socket.on('close', onClose);
 
   const writeEvent = (event: unknown) => { reply.raw.write(`data: ${JSON.stringify(event)}\n\n`); };
+  const projectChunk = createChatStreamProjection();
   const session: SseTurnSession = {
     signal: abortController.signal,
-    writeChunk: (chunk) => writeEvent(normalizePublicStreamChunk(chunk)),
+    writeChunk: (chunk) => writeEvent(normalizePublicStreamChunk(projectChunk(chunk))),
     writeEvent,
   };
   const heartbeat = setInterval(() => {

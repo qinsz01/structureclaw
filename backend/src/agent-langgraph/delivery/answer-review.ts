@@ -75,8 +75,8 @@ function listedNumbers(review: AnswerReview, separator: string): string {
 export function buildCorrectionPrompt(review: AnswerReview): string {
   const en: string[] = [], zh: string[] = [];
   if (review.numbers.length) {
-    en.push(`these result values match no tool result of this turn and no saved result: ${listedNumbers(review, '; ')}`);
-    zh.push(`以下结果数值与本轮工具结果和已保存结果均不一致：${listedNumbers(review, '；')}`);
+    en.push(`these quantities have not yet been verified against tool results or saved results (a derived quantity may still be correct): ${listedNumbers(review, '; ')}`);
+    zh.push(`以下数值尚未通过工具结果或已保存结果核实（推导量仍可能正确）：${listedNumbers(review, '；')}`);
   }
   for (const claim of review.actions) {
     en.push(ACTION_TEXT[claim.action].en);
@@ -84,9 +84,9 @@ export function buildCorrectionPrompt(review: AnswerReview): string {
   }
   return [
     `[StructureClaw answer check] Your final answer was not delivered because ${en.join('; and ')}.`,
-    'Rewrite the final answer: use only values returned by tools (call query_results if a value is still needed) and do not claim actions that did not succeed. Values the user gave as inputs may stay. Do not mention this check, do not apologize and do not repeat the removed values.',
+    'Verify the quantities before answering: query_results retrieves saved responses; calculate, when available, verifies derived totals, differences, ratios and formulas using user- or tool-backed operands. Preserve a valid derived quantity after verification instead of silently deleting it. Do not claim actions that did not succeed. User inputs may stay. If verification is unavailable, state that limitation. Do not mention this internal check or apologize.',
     `[StructureClaw 回答核对] 最终回答未交付，原因：${zh.join('；')}。`,
-    '请重写最终回答：只使用工具返回的数值（仍需数值时调用 query_results），不要声称未成功执行的操作；用户给出的输入值可以保留。不要提及本次核对、不要道歉，也不要复述被删除的数值。',
+    '请先核实再回答：query_results 用于查询已保存响应；calculate 可用时，用用户输入或工具结果作为操作数，核实推导总量、差值、比值及公式。核实后保留合法推导量，不要直接删掉。不要声称未成功执行的操作；用户输入可以保留。无法核实时说明限制，不提及本次内部核对，不道歉。',
   ].join('\n');
 }
 

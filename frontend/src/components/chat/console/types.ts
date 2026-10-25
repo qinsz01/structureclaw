@@ -74,6 +74,7 @@ export type AgentInteraction = {
 }
 
 export type AgentResult = {
+  artifactReferences?: Partial<Record<'model' | 'analysis' | 'report', string>>
   response?: string
   traceId?: string
   success?: boolean
@@ -110,7 +111,7 @@ export type StreamPayload =
   | { type: 'phase_upsert'; phase?: TimelinePhaseGroup }
   | { type: 'step_upsert'; phaseId?: string; step?: TimelineStepItem }
   | { type: 'artifact_upsert'; artifact?: PresentationArtifactState }
-  | { type: 'artifact_payload_sync'; artifact?: 'model' | 'analysis' | 'report'; model?: Record<string, unknown>; latestResult?: AgentResult; snapshot?: VisualizationSnapshot; invalidated?: boolean }
+  | { type: 'artifact_payload_sync'; artifact?: 'model' | 'analysis' | 'report'; artifactId?: string; model?: Record<string, unknown>; latestResult?: AgentResult; snapshot?: VisualizationSnapshot; invalidated?: boolean }
   | { type: 'summary_replace'; summaryText?: string }
   | { type: 'presentation_complete'; completedAt?: string }
   | { type: 'presentation_error'; phase?: string; message?: string }

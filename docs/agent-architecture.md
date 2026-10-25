@@ -64,6 +64,10 @@ Chat routes live in [backend/src/api/chat.ts](../backend/src/api/chat.ts) and ar
 - `POST /api/v1/chat/stream/resume`: resume a paused interaction.
 - Conversation create, list, snapshot, session and message routes are in the same module.
 
+Chat payloads are display projections, not another solver archive (`services/chat-artifacts.ts`). History returns metadata/messages plus a single `snapshots` namespace. Analysis projections retain every explicit result key, nodal response and canonical member sample; `selectedDataReference.resultKey` resolves the selected data inside `results`. Repeated native source documents become exact run/result/member/sample locators, and reports reference their analysis run rather than embedding it again. Complete solver and source data remain at `GET /runs/:runId`; result queries and report generation continue to use the canonical saved run. Unarchived legacy payloads retain their original form. An SSE connection assigns `artifactId` to each artifact sync; the final event may use `artifactReferences` for the identical artifacts already sent. Clients resolve these references within that turn, including background turns, and fail explicitly on a missing reference; invalidation clears dependent results. Synchronous and restored results are self-contained projections without stream references.
+
+The answer check treats an unmatched quantity as unverified, not necessarily incorrect. Its repair prompt permits the LLM to query saved responses or call the available `calculate` tool for derived differences/totals using supported operands. Verified derivations remain deliverable; the repair uses explicit calculator results as evidence.
+
 Agent capability, run, review and SkillHub routes live in [backend/src/api/agent.ts](../backend/src/api/agent.ts) under `/api/v1/agent`:
 
 - `GET /api/v1/agent/skills`, `GET /api/v1/agent/tools`, `GET /api/v1/agent/capability-matrix`

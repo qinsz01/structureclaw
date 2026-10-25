@@ -21,6 +21,7 @@ export type TurnState = {
   toolMessageIds: Map<string, string>
   // All message IDs created during this turn (for finalization).
   turnMessageIds: Set<string>
+  streamArtifacts?: Partial<Record<'model' | 'analysis' | 'report', { id: string; value: Record<string, unknown> }>>
 }
 
 export type TurnBaseDeps = {

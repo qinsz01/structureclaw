@@ -64,6 +64,10 @@ chat routes 位于 [backend/src/api/chat.ts](../backend/src/api/chat.ts)，挂�
 - `POST /api/v1/chat/stream/resume`：恢复一次暂停的交互。
 - 会话创建、列表、snapshot、session 与消息路由也在同一模块中。
 
+聊天载荷是显示投影，不是第二份求解档案（`services/chat-artifacts.ts`）。历史接口仅返回元信息、消息和一份 `snapshots` 命名空间。分析投影保留全部明确结果键、节点响应及构件采样点；`selectedDataReference.resultKey` 指向 `results` 中的选中数据。重复原生来源文档改为准确的运行、结果、构件和采样点引用，报告引用分析运行而不再内嵌整份分析。完整求解及来源数据仍可通过 `GET /runs/:runId` 读取，结果查询和报告生成仍使用已保存的规范运行；未归档的旧载荷保留原格式。每条 SSE 连接为制品同步分配 `artifactId`，最终事件可通过 `artifactReferences` 引用该连接已经发送的同一制品。客户端按当前轮次解析引用，后台会话同样适用；引用缺失时明确失败，失效事件清除依赖结果。同步及恢复结果使用自包含投影，不携带流内引用。
+
+回答核对把未匹配的数值视为“尚未核实”，不直接认定错误。修复提示允许 LLM 查询已有响应，或调用可用的 `calculate` 工具，使用已支持的操作数核实差值、总量等推导；核实后的推导量可以交付，推导依据是计算工具的明确结果。
+
 agent capability、运行、审阅与 SkillHub routes 位于 [backend/src/api/agent.ts](../backend/src/api/agent.ts)，挂载在 `/api/v1/agent` 下：
 
 - `GET /api/v1/agent/skills`、`GET /api/v1/agent/tools`、`GET /api/v1/agent/capability-matrix`

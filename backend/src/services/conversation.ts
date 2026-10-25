@@ -6,6 +6,7 @@ import {
   STRUCTURAL_COORDINATE_SEMANTICS,
 } from '../engineering/coordinate-semantics.js';
 import { resolveLocale, type AppLocale } from '../shared/locale.js';
+import { projectChatResult } from './chat-artifacts.js';
 
 /**
  * Conversation snapshots (latestResult, modelSnapshot, resultSnapshot) are
@@ -132,7 +133,8 @@ export class ConversationService {
   async getConversation(id: string) {
     return prisma.conversation.findFirst({
       where: { id },
-      include: {
+      select: {
+        id: true, title: true, type: true, createdAt: true, updatedAt: true,
         messages: {
           orderBy: { createdAt: 'asc' },
         },
@@ -187,7 +189,7 @@ export class ConversationService {
       updateData.resultSnapshot = params.resultSnapshot;
     }
     if (params.latestResult !== undefined) {
-      updateData.latestResult = params.latestResult;
+      updateData.latestResult = projectChatResult(params.latestResult);
     }
 
     await prisma.conversation.update({
@@ -221,7 +223,7 @@ export class ConversationService {
     return {
       modelSnapshot: conversation.modelSnapshot,
       resultSnapshot: conversation.resultSnapshot,
-      latestResult: conversation.latestResult,
+      latestResult: projectChatResult(conversation.latestResult),
       staleStructuralData,
     };
   }

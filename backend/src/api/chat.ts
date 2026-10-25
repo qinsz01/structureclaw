@@ -12,6 +12,7 @@ import type { AgentState } from '../agent-langgraph/state.js';
 import { buildPersistedDebugDetails, persistLatestConversationResult, persistConversationWithState } from '../services/chat-persistence.js';
 import { runSseTurn, type SseTurnSession } from './chat-sse.js';
 import { parseRequest } from './request-validation.js';
+import { projectChatResult } from '../services/chat-artifacts.js';
 
 const conversationService = new ConversationService();
 
@@ -215,7 +216,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
         state: snapshotState,
       });
 
-      return reply.send({ result });
+      return reply.send({ result: projectChatResult(result) });
     } catch (error) {
       const mappedError = toLlmApiError(error);
       if (isLlmTimeoutError(error)) {
@@ -361,6 +362,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
 
     const conversation = await prisma.conversation.findFirst({
       where: { id },
+      select: { id: true },
     });
 
     if (!conversation) {

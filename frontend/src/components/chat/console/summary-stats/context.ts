@@ -1,4 +1,5 @@
 import type { MessageKey } from '@/lib/i18n'
+import { analysisData } from '@/lib/analysis-data'
 
 export function stringList(value: unknown): string[] {
   return Array.isArray(value)
@@ -12,7 +13,7 @@ export function finiteNumber(value: unknown): number | null {
 
 /** Extracts the typed sub-records of an analysis payload used by the summary stats. */
 export function buildSummaryStatsContext(analysis: Record<string, unknown>, t: (key: MessageKey) => string) {
-  const data = typeof analysis.data === 'object' && analysis.data ? (analysis.data as Record<string, unknown>) : analysis
+  const data = analysisData(analysis) ?? {}
   const meta = typeof analysis.meta === 'object' && analysis.meta ? (analysis.meta as Record<string, unknown>) : null
   const summary = typeof data.summary === 'object' && data.summary ? (data.summary as Record<string, unknown>) : null
   const modelSummary = typeof data.modelSummary === 'object' && data.modelSummary ? (data.modelSummary as Record<string, unknown>) : null

@@ -3,6 +3,7 @@ import type { AppLocale } from '@/lib/stores/slices/preferences'
 import { formatNumber } from '@/lib/utils'
 import type { AgentResult, SeismicContextRow, SeismicContextSummary } from './types'
 import { extractAnalysis, asRecord } from './result-utils'
+import { analysisData } from '@/lib/analysis-data'
 
 function formatSeismicContextValue(value: unknown, locale: AppLocale): string {
   if (value === undefined || value === null) return 'N/A'
@@ -34,7 +35,8 @@ export function extractSeismicContext(
 ): SeismicContextSummary | null {
   const analysis = extractAnalysis(result)
   if (!analysis) return null
-  const data = asRecord(analysis.data) ?? analysis
+  const data = analysisData(analysis)
+  if (!data) return null
   const designBasis = asRecord(data.designBasis)
   const methodDecision = asRecord(data.methodDecision)
   const groundMotionRequirement = asRecord(data.groundMotionRequirement)

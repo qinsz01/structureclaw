@@ -6,6 +6,7 @@ import { buildVisualizationTitle, extractAnalysis, extractVisualizationHints } f
 import { saveConversationSnapshotToBackend } from './backend-sync'
 import { ensureTextMessage, type TurnState } from './turn-state'
 import { handlePresentationPayload, type TurnStreamDeps } from './turn-stream-events'
+import { rememberStreamArtifact, resolveStreamArtifacts } from './stream-artifacts'
 
 /** Applies artifact sync, final result and error events of a chat stream. */
 function handleResultPayload(turn: TurnState, deps: TurnStreamDeps, payload: StreamPayload) {
@@ -30,6 +31,7 @@ function handleResultPayload(turn: TurnState, deps: TurnStreamDeps, payload: Str
   } = deps
 
   if (payload.type === 'artifact_payload_sync') {
+    rememberStreamArtifact(turn, payload)
     if (payload.invalidated && turn.activeConversationId === conversationIdRef.current) {
       setLatestResult((current) => current ? {
         ...current,
@@ -58,9 +60,7 @@ function handleResultPayload(turn: TurnState, deps: TurnStreamDeps, payload: Str
   }
 
   if (payload.type === 'result' && payload.content && typeof payload.content === 'object') {
-    const result = {
-      ...(payload.content as AgentResult),
-    }
+    const result = resolveStreamArtifacts(turn, payload.content as AgentResult, t('streamArtifactMissing'))
     const visualizationHints = extractVisualizationHints(result)
     const debugDetails = buildMessageDebugDetails(promptSnapshot, debugSkillIds, debugToolIds, result)
     if (result.model && typeof result.model === 'object' && !Array.isArray(result.model)) {
