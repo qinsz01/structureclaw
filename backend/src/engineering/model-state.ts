@@ -139,6 +139,26 @@ function loadCaseNotFoundMessage(edit: ModelEdit, available: string[]): string {
     : `MODEL_LOAD_CASE_NOT_FOUND: caseId ${JSON.stringify(edit.caseId)} for ${target}; available load_cases: ${known} / 荷载编辑 ${target} 指定的工况 ${JSON.stringify(edit.caseId)} 不存在；现有荷载工况：${known}`;
 }
 
+/** A geometry edit invalidates cached properties, not explicitly edited values.
+ * The previous normalized record identifies which fields the converter derived;
+ * catalogue/user properties without that valid provenance remain authoritative. */
+function invalidateEditedSectionGeometry(before: ModelRecord, after: ModelRecord, values: ModelRecord): ModelRecord {
+  if (contentHash(before.shape) === contentHash(after.shape)) return after;
+  const extra = isRecord(before.extra) ? before.extra : {};
+  const derived = isRecord(extra.derived_properties) ? extra.derived_properties : undefined;
+  const diagnostics = Array.isArray(extra.section_diagnostics) ? extra.section_diagnostics : [];
+  if (derived?.method !== 'section-geometry-v1' || !Array.isArray(derived.fields)
+    || !derived.fields.every(field => typeof field === 'string')
+    || contentHash(derived.shape) !== contentHash(before.shape)
+    || diagnostics.some(note => isRecord(note) && note.code === 'SECTION_PROVENANCE_CONFLICT')) return after;
+  const supplied = isRecord(values.properties) ? values.properties : {};
+  const properties = isRecord(after.properties) ? { ...after.properties } : {};
+  for (const field of derived.fields) if (!Object.hasOwn(supplied, field)) delete properties[field];
+  const nextExtra = isRecord(after.extra) ? { ...after.extra } : {};
+  delete nextExtra.derived_properties;
+  return { ...after, properties, extra: nextExtra };
+}
+
 export function applyModelEdits(model: ModelRecord, edits: ModelEdit[]): ModelRecord {
   if (edits.length === 0) throw new Error('MODEL_EMPTY_EDIT');
   const updated = structuredClone(model);
@@ -174,7 +194,9 @@ export function applyModelEdits(model: ModelRecord, edits: ModelEdit[]): ModelRe
       else {
         if (!edit.values) throw new Error('MODEL_EDIT_VALUES_REQUIRED');
         if (edit.values.id !== undefined && edit.values.id !== edit.id) throw new Error('MODEL_ID_CHANGE_FORBIDDEN');
-        items[at] = mergeFields(items[at]!, edit.values);
+        const before = items[at]!;
+        const merged = mergeFields(before, edit.values);
+        items[at] = edit.collection === 'sections' ? invalidateEditedSectionGeometry(before, merged, edit.values) : merged;
       }
     }
   }
