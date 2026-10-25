@@ -732,8 +732,8 @@ def _generate_pdf(report: Dict[str, Any], output_path: Path, images: Optional[Li
 
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle("CNTitle", parent=styles["Title"], fontName=cn_font, fontSize=18, spaceAfter=12)
-    h1_style = ParagraphStyle("CNH1", parent=styles["Heading1"], fontName=cn_font, fontSize=14, spaceAfter=8, spaceBefore=12)
-    h2_style = ParagraphStyle("CNH2", parent=styles["Heading2"], fontName=cn_font, fontSize=12, spaceAfter=6, spaceBefore=8)
+    h1_style = ParagraphStyle("CNH1", parent=styles["Heading1"], fontName=cn_font, fontSize=14, spaceAfter=8, spaceBefore=12, keepWithNext=True)
+    h2_style = ParagraphStyle("CNH2", parent=styles["Heading2"], fontName=cn_font, fontSize=12, spaceAfter=6, spaceBefore=8, keepWithNext=True)
     body_style = ParagraphStyle("CNBody", parent=styles["Normal"], fontName=cn_font, fontSize=10, spaceAfter=4)
 
     elements: List[Any] = []
