@@ -9,6 +9,17 @@ function validDxf(entities = [], units = 6) {
     '0', 'SECTION', '2', 'ENTITIES', ...entities, '0', 'ENDSEC', '0', 'EOF', ''].join('\n');
 }
 
+function insertedFrameDxf(name = 'FRAME') {
+  const block = ['0','SECTION','2','BLOCKS','0','BLOCK','8','0','2','FRAME','70','0','10','0','20','0','30','0',
+    '3','FRAME','1','',
+    '0','LINE','8','0','10','0','20','0','11','0','21','3',
+    '0','LINE','8','0','10','0','20','3','11','6','21','3',
+    '0','LINE','8','0','10','6','20','3','11','6','21','0',
+    '0','ENDBLK','8','0','0','ENDSEC',''].join('\n');
+  return validDxf(['0','INSERT','8','STRUCTURE','2',name,'10','10','20','2','30','0'])
+    .replace('0\nSECTION\n2\nENTITIES\n', block + '0\nSECTION\n2\nENTITIES\n');
+}
+
 function pdfFixture(firstStream = 'BT /F1 12 Tf 20 120 Td (Beam B1) Tj ET 10 10 m 200 150 l S') {
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
@@ -283,6 +294,39 @@ describe('createAnalyzeFileTool', () => {
     expect(complete.pages[0].itemsTruncated).toBe(false);
     expect(complete.pages[0].text.length).toBeGreaterThan(16000);
     expect(complete.inputEvidence.find(item=>item.source.page===2).requirement).toBe('complete-read');
+  });
+
+  test('uploaded block frame retains transformed geometry, provenance and reviewable file evidence', async () => {
+    const { analyzeUploadedFile } = await import('../../../dist/agent-langgraph/file-tools.js');
+    const { fileInputEvidence } = await import('../../../dist/engineering/file-evidence.js');
+    const file = path.join(uploadsDir, 'block-frame.dxf');
+    await fs.writeFile(file, insertedFrameDxf());
+    const result = await analyzeUploadedFile(file, tmpDir);
+    expect(result).toMatchObject({ success: true, type: 'dxf', complete: true, lineCount: 3 });
+    expect(result.lines.map(row => [row.x1, row.y1, row.x2, row.y2])).toEqual([
+      [10, 2, 10, 5], [10, 5, 16, 5], [16, 5, 16, 2],
+    ]);
+    expect(result.source.candidates.lines[1]).toMatchObject({ start: [10, 5, 0], end: [16, 5, 0], length: 6,
+      source: { effectiveLayer: 'STRUCTURE', insertPath: [{ name: 'FRAME', position: [10, 2, 0], instance: 0 }] } });
+    expect(result.source.sha256).toMatch(/^[a-f0-9]{64}$/);
+    const evidence = fileInputEvidence(result, file);
+    expect(evidence).toHaveLength(1);
+    expect(evidence[0]).toMatchObject({ status: 'unread', required: true, requirement: 'field-mapping',
+      source: { complete: true, sha256: result.source.sha256 } });
+  });
+
+  test('an unresolved uploaded block cannot become apparently complete engineering evidence', async () => {
+    const { analyzeUploadedFile } = await import('../../../dist/agent-langgraph/file-tools.js');
+    const { fileInputEvidence } = await import('../../../dist/engineering/file-evidence.js');
+    const { assertResolvedInput } = await import('../../../dist/engineering/input-evidence.js');
+    const file = path.join(uploadsDir, 'missing-block.dxf');
+    await fs.writeFile(file, insertedFrameDxf('MISSING'));
+    const result = await analyzeUploadedFile(file, tmpDir);
+    expect(result).toMatchObject({ success: true, complete: false, lineCount: 0,
+      unsupportedEntities: { INSERT_BLOCK_NOT_FOUND: 1 } });
+    const evidence = fileInputEvidence(result, file);
+    expect(evidence.some(item => item.requirement === 'complete-read' && item.source.complete === false)).toBe(true);
+    expect(() => assertResolvedInput(evidence)).toThrow();
   });
 
   test('later PDF pages enter the same vision hook and retain page evidence', async () => {

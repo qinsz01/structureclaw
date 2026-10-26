@@ -7,6 +7,11 @@ from collections import Counter
 
 import ezdxf
 from ezdxf import units
+from ezdxf.xclip import XClip
+
+
+MAX_INSERT_DEPTH = 12
+MAX_EXPANDED_ENTITIES = 100000
 
 
 def extract(text, limit=500, text_limit=200, file_path=None):
@@ -27,18 +32,70 @@ def extract(text, limit=500, text_limit=200, file_path=None):
             raise ValueError("Non-finite DXF coordinates / DXF坐标不是有限值")
         return result
 
-    def visit(entity, source, depth=0):
-        if depth > 12:
+    def visit(entity, source, depth=0, parent_matrix=None):
+        if depth > MAX_INSERT_DEPTH:
             unsupported["INSERT_DEPTH_LIMIT"] += 1
             return
         kind = entity.dxftype()
         counts["expanded"] += 1
-        if counts["expanded"] > 100000:
+        if counts["expanded"] > MAX_EXPANDED_ENTITIES:
             raise ValueError("DXF expansion limit exceeded / DXF实体展开数量超限")
         layer = entity.dxf.get("layer", "0")
         effective_layer = source.get("effectiveLayer", layer) if layer == "0" else layer
         provenance = {**source, "entityType": kind, "handle": entity.dxf.get("handle"), "layer": layer, "effectiveLayer": effective_layer}
-        if kind in ("CIRCLE", "ARC", "LEADER", "MLEADER", "MULTILEADER", "SOLID", "HATCH", "INSERT"):
+        if parent_matrix is not None and kind in ("LINE", "TEXT", "MTEXT", "ATTRIB", "DIMENSION"):
+            if kind in ("TEXT", "MTEXT", "ATTRIB") and source.get("nonUniformScaling"):
+                # ezdxf does not guarantee accurate text transforms under anisotropic scaling.
+                unsupported["INSERT_NON_UNIFORM_TEXT"] += 1
+                return
+            try:
+                entity = entity.copy().transform(parent_matrix)
+            except (ezdxf.DXFError, NotImplementedError, ValueError):
+                unsupported[f"INSERT_TRANSFORM:{kind}"] += 1
+                return
+        if kind == "INSERT":
+            block = entity.block()
+            if block is None:
+                unsupported["INSERT_BLOCK_NOT_FOUND"] += 1
+                return
+            if block.block.is_xref:
+                unsupported["INSERT_EXTERNAL_REFERENCE"] += 1
+                return
+            clip = XClip(entity)
+            if clip.has_clipping_path and clip.is_clipping_enabled:
+                # virtual_entities ignores XCLIP: never expose hidden geometry as complete.
+                unsupported["INSERT_CLIPPING"] += 1
+                return
+
+            references = entity.multi_insert() if entity.mcount > 1 else (entity,)
+            try:
+                for instance, reference in enumerate(references):
+                    if reference is not entity:
+                        counts["expanded"] += 1
+                        if counts["expanded"] > MAX_EXPANDED_ENTITIES:
+                            raise ValueError("DXF expansion limit exceeded / DXF实体展开数量超限")
+                    insertion = reference.ocs().to_wcs(reference.dxf.insert)
+                    if parent_matrix is not None:
+                        insertion = parent_matrix.transform(insertion)
+                    block_source = {**provenance, "insertPath": [*source.get("insertPath", []),
+                        {"name": reference.dxf.name, "position": point(insertion), "instance": instance}],
+                        "nonUniformScaling": source.get("nonUniformScaling", False) or not reference.has_uniform_scaling}
+                    matrix = reference.matrix44()
+                    if parent_matrix is not None:
+                        matrix = matrix @ parent_matrix
+                    # Expand in definition coordinates before composing transformations.
+                    # Transforming a nested MINSERT first loses its scaled grid spacing.
+                    for index, child in enumerate(block):
+                        if child.dxftype() == "ATTDEF":
+                            continue  # Instantiated values are in reference.attribs.
+                        visit(child, {**block_source, "parentHandle": entity.dxf.get("handle"), "childIndex": index}, depth + 1, matrix)
+                    for index, attribute in enumerate(reference.attribs):
+                        # Attached ATTRIB positions already include their own INSERT transform.
+                        visit(attribute, {**block_source, "attributeIndex": index,
+                            "nonUniformScaling": source.get("nonUniformScaling", False)}, depth + 1, parent_matrix)
+            except (ezdxf.DXFError, NotImplementedError) as error:
+                unsupported[f"INSERT:{type(error).__name__}"] += 1
+        elif kind in ("CIRCLE", "ARC", "LEADER", "MLEADER", "MULTILEADER", "SOLID", "HATCH"):
             if kind == "ARC" and source.get("entityType") in ("LWPOLYLINE", "POLYLINE"):
                 unsupported["CURVED_POLYLINE"] += 1
             else:
@@ -49,7 +106,7 @@ def extract(text, limit=500, text_limit=200, file_path=None):
                 return
             try:
                 for index, child in enumerate(entity.virtual_entities()):
-                    visit(child, {**provenance, "parentHandle": entity.dxf.get("handle"), "childIndex": index}, depth + 1)
+                    visit(child, {**provenance, "parentHandle": entity.dxf.get("handle"), "childIndex": index}, depth + 1, parent_matrix)
             except (ezdxf.DXFError, NotImplementedError) as error:
                 unsupported[f"{kind}:{type(error).__name__}"] += 1
         elif kind == "LINE":
@@ -90,9 +147,6 @@ def extract(text, limit=500, text_limit=200, file_path=None):
     for index, entity in enumerate(doc.modelspace()):
         counts["root"] += 1
         visit(entity, {"entityIndex": index, "rootHandle": entity.dxf.get("handle")})
-        if entity.dxftype() == "INSERT":
-            for attribute in entity.attribs:
-                visit(attribute, {"entityIndex": index, "rootHandle": entity.dxf.get("handle")})
     excluded_layouts = [{"name": layout.name, "entityCount": len(layout)} for layout in doc.layouts if layout.name != "Model" and len(layout)]
     if excluded_layouts:
         unsupported["PAPERSPACE_NOT_EXTRACTED"] = sum(layout["entityCount"] for layout in excluded_layouts)
